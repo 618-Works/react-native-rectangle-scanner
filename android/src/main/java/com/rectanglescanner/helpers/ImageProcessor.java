@@ -2,18 +2,19 @@ package com.rectanglescanner.helpers;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.preference.PreferenceManager;
 import android.util.Log;
+import android.view.Surface;
 
-import com.rectanglescanner.views.RectangleDetectionController;
+import com.facebook.react.bridge.Arguments;
+import com.rectanglescanner.helpers.CapturedImage;
 import com.rectanglescanner.helpers.ImageProcessorMessage;
 import com.rectanglescanner.helpers.Quadrilateral;
-import com.rectanglescanner.helpers.CapturedImage;
-
-import android.view.Surface;
+import com.rectanglescanner.views.RectangleDetectionController;
 
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
@@ -25,19 +26,21 @@ import org.opencv.core.Size;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 
-import android.os.Bundle;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 
-import com.facebook.react.bridge.Arguments;
+//  import javax.swing.*;
+//  import java.awt.*;
+//  import java.awt.image.BufferedImage;
+//  import java.awt.image.DataBufferByte;
 
 /**
-  Created by Jake on Jan 6, 2020.
+ Created by Jake on Jan 6, 2020.
 
-  Async processes either the image preview frame to detect rectangles, or
-  the captured image to crop and apply filters.
+ Async processes either the image preview frame to detect rectangles, or
+ the captured image to crop and apply filters.
  */
 public class ImageProcessor extends Handler {
 
@@ -52,8 +55,8 @@ public class ImageProcessor extends Handler {
     }
 
     /**
-    Receives an event message to handle async
-    */
+     Receives an event message to handle async
+     */
     public void handleMessage(Message msg) {
         if (msg.obj.getClass() == ImageProcessorMessage.class) {
 
@@ -71,18 +74,18 @@ public class ImageProcessor extends Handler {
     }
 
     /**
-    Detect a rectangle in the current frame from the camera video
-    */
+     Detect a rectangle in the current frame from the camera video
+     */
     private void processPreviewFrame(Mat frame) {
-      rotateImageForScreen(frame);
-      detectRectangleInFrame(frame);
-      frame.release();
-      mMainActivity.setImageProcessorBusy(false);
+        rotateImageForScreen(frame);
+        detectRectangleInFrame(frame);
+        frame.release();
+        mMainActivity.setImageProcessorBusy(false);
     }
 
     /**
-    Process a single frame from the camera video
-    */
+     Process a single frame from the camera video
+     */
     private void processCapturedImage(Mat picture) {
         Mat capturedImage = Imgcodecs.imdecode(picture, Imgcodecs.CV_LOAD_IMAGE_UNCHANGED);
         picture.release();
@@ -101,8 +104,8 @@ public class ImageProcessor extends Handler {
     }
 
     /**
-    Detects a rectangle from the image and sets the last detected rectangle
-    */
+     Detects a rectangle from the image and sets the last detected rectangle
+     */
     private void detectRectangleInFrame(Mat inputRgba) {
         ArrayList<MatOfPoint> contours = findContours(inputRgba);
         Size srcSize = inputRgba.size();
@@ -110,18 +113,18 @@ public class ImageProcessor extends Handler {
         Bundle data = new Bundle();
         boolean focused = mMainActivity.isFocused();
         if (focused && this.lastDetectedRectangle != null) {
-          Bundle quadMap = this.lastDetectedRectangle.toBundle();
-          data.putBundle("detectedRectangle", quadMap);
+            Bundle quadMap = this.lastDetectedRectangle.toBundle();
+            data.putBundle("detectedRectangle", quadMap);
         } else {
-          data.putBoolean("detectedRectangle", false);
+            data.putBoolean("detectedRectangle", false);
         }
 
         mMainActivity.rectangleWasDetected(Arguments.fromBundle(data));
     }
 
     /**
-    Crops the image to the latest detected rectangle and fixes perspective
-    */
+     Crops the image to the latest detected rectangle and fixes perspective
+     */
     private CapturedImage cropImageToLatestQuadrilateral(Mat capturedImage) {
         applyFilters(capturedImage);
 
@@ -146,9 +149,10 @@ public class ImageProcessor extends Handler {
     }
 
     private Quadrilateral getQuadrilateral(ArrayList<MatOfPoint> contours, Size srcSize) {
-
-        int height = Double.valueOf(srcSize.height).intValue();
-        int width = Double.valueOf(srcSize.width).intValue();
+        ///
+        double ratio = srcSize.height / 500;
+        int height = Double.valueOf(srcSize.height / ratio).intValue();
+        int width = Double.valueOf(srcSize.width / ratio).intValue();
         Size size = new Size(width, height);
 
         Log.i(TAG, "Size----->" + size);
@@ -161,14 +165,21 @@ public class ImageProcessor extends Handler {
             Point[] points = approx.toArray();
 
             // select biggest 4 angles polygon
-            // if (points.length == 4) {
-            Point[] foundPoints = sortPoints(points);
+            if (points.length == 4) {
+                Point[] foundPoints = sortPoints(points);
 
-            if (insideArea(foundPoints, size)) {
+                if (insideArea(foundPoints, size)) {
+                    ///
+                    Point[] rescaledPoints = new Point[4];
+                    for ( int i=0; i<4 ; i++ ) {
+                        int x = Double.valueOf(points[i].x*ratio).intValue();
+                        int y = Double.valueOf(points[i].y*ratio).intValue();
+                        rescaledPoints[(i+2)%4] = new Point( x, y);
+                    }
 
-                return new Quadrilateral(c, foundPoints, new Size(srcSize.width, srcSize.height));
+                    return new Quadrilateral(c, rescaledPoints, new Size(srcSize.width, srcSize.height));
+                }
             }
-            // }
         }
 
         return null;
@@ -217,9 +228,11 @@ public class ImageProcessor extends Handler {
 
         int minimumSize = width / 10;
 
-        boolean isANormalShape = rp[0].x != rp[1].x && rp[1].y != rp[0].y && rp[2].y != rp[3].y && rp[3].x != rp[2].x;
+//        boolean isANormalShape = rp[0].x != rp[1].x && rp[1].y != rp[0].y && rp[2].y != rp[3].y && rp[3].x != rp[2].x;
         boolean isBigEnough = ((rp[1].x - rp[0].x >= minimumSize) && (rp[2].x - rp[3].x >= minimumSize)
                 && (rp[3].y - rp[0].y >= minimumSize) && (rp[2].y - rp[1].y >= minimumSize));
+
+        boolean isANormalShape = true;
 
         double leftOffset = rp[0].x - rp[3].x;
         double rightOffset = rp[1].x - rp[2].x;
@@ -235,6 +248,7 @@ public class ImageProcessor extends Handler {
     }
 
     private Mat fourPointTransform(Mat src, Point[] pts) {
+
         Point tl = pts[0];
         Point tr = pts[1];
         Point br = pts[2];
@@ -268,24 +282,95 @@ public class ImageProcessor extends Handler {
         return doc;
     }
 
+//    private ArrayList<MatOfPoint> findContours(Mat src) {
+//
+//        Mat grayImage;
+//        Mat cannedImage;
+//        Mat resizedImage;
+//        ///
+//        double ratio = src.size().height / 500;
+//        int height = Double.valueOf(src.size().height / ratio).intValue();
+//        int width = Double.valueOf(src.size().width / ratio).intValue();
+//        Size size = new Size(width, height);
+//
+//        resizedImage = new Mat(size, CvType.CV_8UC4);
+//        grayImage = new Mat(size, CvType.CV_8UC4);
+//        cannedImage = new Mat(size, CvType.CV_8UC1);
+//
+//        Imgproc.resize(src, resizedImage, size);
+//        Imgproc.cvtColor(resizedImage, grayImage, Imgproc.COLOR_RGBA2GRAY, 4);
+//        Imgproc.GaussianBlur(grayImage, grayImage, new Size(3, 3), 0);
+//        Imgproc.Canny(grayImage, cannedImage, 30, 60, 3, false);
+//
+//        ArrayList<MatOfPoint> contours = new ArrayList<>();
+//        Mat hierarchy = new Mat();
+//
+//        Imgproc.findContours(cannedImage, contours, hierarchy, Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
+//
+//        hierarchy.release();
+//
+//        Collections.sort(contours, new Comparator<MatOfPoint>() {
+//
+//            @Override
+//            public int compare(MatOfPoint lhs, MatOfPoint rhs) {
+//                return Double.compare(Imgproc.contourArea(rhs), Imgproc.contourArea(lhs));
+//            }
+//        });
+//
+//        resizedImage.release();
+//        grayImage.release();
+//        cannedImage.release();
+//
+//        return contours;
+//    }
+
     private ArrayList<MatOfPoint> findContours(Mat src) {
+
+        Integer MORPH = 4;
+        Integer CANNY_LOW = 20;
+        Integer CANNY_HIGH = 40;
+        Integer BLUR = 7;
 
         Mat grayImage;
         Mat cannedImage;
         Mat resizedImage;
-
-        int height = Double.valueOf(src.size().height).intValue();
-        int width = Double.valueOf(src.size().width).intValue();
+        Mat dilatedImage;
+        ///
+        double ratio = src.size().height / 500;
+        int height = Double.valueOf(src.size().height / ratio).intValue();
+        int width = Double.valueOf(src.size().width / ratio).intValue();
         Size size = new Size(width, height);
 
+//        resizedImage = new Mat(size, CvType.CV_8UC4);
+//        grayImage = new Mat(size, CvType.CV_8UC4);
+//        dilatedImage = new Mat(size, CvType.CV_8UC4);
+//        cannedImage = new Mat(size, CvType.CV_8UC1);
         resizedImage = new Mat(size, CvType.CV_8UC4);
-        grayImage = new Mat(size, CvType.CV_8UC4);
-        cannedImage = new Mat(size, CvType.CV_8UC1);
+        grayImage =  new Mat(size, CvType.CV_8UC4);
+        dilatedImage =  new Mat(size, CvType.CV_8UC4);
+        cannedImage =  new Mat(size, CvType.CV_8UC4);
 
-        Imgproc.resize(src, resizedImage, size);
-        Imgproc.cvtColor(resizedImage, grayImage, Imgproc.COLOR_RGBA2GRAY, 4);
-        Imgproc.GaussianBlur(grayImage, grayImage, new Size(5, 5), 0);
-        Imgproc.Canny(grayImage, cannedImage, 80, 100, 3, false);
+        /*
+        *
+        *
+        *  # convert the image to grayscale and blur it slightly
+            gray = cv2.cvtColor(rescaled_image, cv2.COLOR_BGR2GRAY)
+            gray = cv2.GaussianBlur(gray, (BLUR,BLUR), 0)
+
+            # dilate helps to remove potential holes between edge segments
+            kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(MORPH,MORPH))
+            dilated = cv2.dilate(gray, kernel)
+
+            # find edges and mark them in the output map using the Canny algorithm
+            edged = cv2.Canny(dilated, CANNY_LOW, CANNY_HIGH)
+        * */
+
+        Imgproc.resize(src, resizedImage, size, 0,0,3);
+        Imgproc.cvtColor(resizedImage, grayImage, Imgproc.COLOR_BGR2GRAY);
+        Imgproc.GaussianBlur(grayImage, grayImage, new Size(BLUR, BLUR), 0);
+        Mat kernel = Imgproc.getStructuringElement(0, new Size(MORPH, MORPH));
+        Imgproc.dilate(grayImage, dilatedImage, kernel);
+        Imgproc.Canny(dilatedImage, cannedImage, CANNY_LOW, CANNY_HIGH);
 
         ArrayList<MatOfPoint> contours = new ArrayList<>();
         Mat hierarchy = new Mat();
@@ -313,27 +398,27 @@ public class ImageProcessor extends Handler {
      Applies filters to the image based on the set filter
      */
     public void applyFilters(Mat image) {
-      int filterId = this.mMainActivity.getFilterId();
-      switch (filterId) {
-        case 1: {
-          // original image
-          break;
+        int filterId = this.mMainActivity.getFilterId();
+        switch (filterId) {
+            case 1: {
+                // original image
+                break;
+            }
+            case 2: {
+                applyGreyscaleFilterToImage(image);
+                break;
+            }
+            case 3: {
+                applyColorFilterToImage(image);
+                break;
+            }
+            case 4: {
+                applyBlackAndWhiteFilterToImage(image);
+                break;
+            }
+            default:
+                // original image
         }
-        case 2: {
-          applyGreyscaleFilterToImage(image);
-          break;
-        }
-        case 3: {
-          applyColorFilterToImage(image);
-          break;
-        }
-        case 4: {
-          applyBlackAndWhiteFilterToImage(image);
-          break;
-        }
-        default:
-          // original image
-      }
     }
 
     /*!
@@ -341,8 +426,8 @@ public class ImageProcessor extends Handler {
      */
     public Mat applyGreyscaleFilterToImage(Mat image)
     {
-      Imgproc.cvtColor(image, image, Imgproc.COLOR_RGBA2GRAY);
-      return image;
+        Imgproc.cvtColor(image, image, Imgproc.COLOR_RGBA2GRAY);
+        return image;
     }
 
     /*!
@@ -350,9 +435,9 @@ public class ImageProcessor extends Handler {
      */
     public Mat applyBlackAndWhiteFilterToImage(Mat image)
     {
-      Imgproc.cvtColor(image, image, Imgproc.COLOR_RGBA2GRAY);
-      image.convertTo(image, -1, 1, 10);
-      return image;
+        Imgproc.cvtColor(image, image, Imgproc.COLOR_RGBA2GRAY);
+        image.convertTo(image, -1, 1, 10);
+        return image;
     }
 
     /*!
@@ -360,31 +445,32 @@ public class ImageProcessor extends Handler {
      */
     public Mat applyColorFilterToImage(Mat image)
     {
-      image.convertTo(image, -1, 1.2, 0);
-      return image;
+        image.convertTo(image, -1, 1.2, 0);
+        return image;
     }
 
 
     public void rotateImageForScreen(Mat image) {
-      switch (this.mMainActivity.lastDetectedRotation) {
-        case Surface.ROTATION_90: {
-          // Do nothing
-          break;
+        switch (this.mMainActivity.lastDetectedRotation) {
+            case Surface.ROTATION_90: {
+                // Do nothing
+                break;
+            }
+            case Surface.ROTATION_180: {
+                Core.flip(image.t(), image, 0);
+                break;
+            }
+            case Surface.ROTATION_270: {
+                Core.flip(image, image, 0);
+                Core.flip(image, image, 1);
+                break;
+            }
+            case Surface.ROTATION_0:
+            default: {
+                Core.flip(image.t(), image, 1);
+                break;
+            }
         }
-        case Surface.ROTATION_180: {
-          Core.flip(image.t(), image, 0);
-          break;
-        }
-        case Surface.ROTATION_270: {
-          Core.flip(image, image, 0);
-          Core.flip(image, image, 1);
-          break;
-        }
-        case Surface.ROTATION_0:
-        default: {
-          Core.flip(image.t(), image, 1);
-          break;
-        }
-      }
     }
 }
+
