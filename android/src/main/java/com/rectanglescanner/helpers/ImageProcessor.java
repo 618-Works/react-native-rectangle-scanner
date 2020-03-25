@@ -138,7 +138,7 @@ public class ImageProcessor extends Handler {
             capturedImage.copyTo(doc);
         }
 
-        Core.flip(doc.t(), doc, 0);
+        Core.flip(doc.t(), doc, -1);
         Core.flip(capturedImage.t(), capturedImage, 0);
         CapturedImage sd = new CapturedImage(capturedImage);
 
