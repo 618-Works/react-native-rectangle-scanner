@@ -516,8 +516,12 @@ public class CameraDeviceController extends JavaCameraView implements PictureCal
 
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
-        super.onConfigurationChanged(newConfig);
-        mCamera.setDisplayOrientation(getScreenRotationOnPhone());
+      super.onConfigurationChanged(newConfig);
+        try {
+            mCamera.setDisplayOrientation(getScreenRotationOnPhone());
+        } catch (Exception e) {
+            // do nothing
+        }
     }
 
     @Override
