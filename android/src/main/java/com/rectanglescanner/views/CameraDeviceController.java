@@ -445,20 +445,20 @@ public class CameraDeviceController extends JavaCameraView implements PictureCal
           this.safeToTakePicture = false;
 
           try {
-              if (pm.hasSystemFeature(PackageManager.FEATURE_CAMERA_AUTOFOCUS)) {
-                  mCamera.autoFocus(new Camera.AutoFocusCallback() {
-                      @Override
-                      public void onAutoFocus(boolean success, Camera camera) {
-                          if (success) {
-                              takePicture();
-                          } else {
-                              onPictureFailed();
-                          }
-                      }
-                  });
-              } else {
+//               if (pm.hasSystemFeature(PackageManager.FEATURE_CAMERA_AUTOFOCUS)) {
+//                   mCamera.autoFocus(new Camera.AutoFocusCallback() {
+//                       @Override
+//                       public void onAutoFocus(boolean success, Camera camera) {
+//                           if (success) {
+//                               takePicture();
+//                           } else {
+//                               onPictureFailed();
+//                           }
+//                       }
+//                   });
+//               } else {
                   takePicture();
-              }
+//               }
           } catch (Exception e) {
               onPictureFailed();
           }
@@ -516,8 +516,12 @@ public class CameraDeviceController extends JavaCameraView implements PictureCal
 
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
-        super.onConfigurationChanged(newConfig);
-        mCamera.setDisplayOrientation(getScreenRotationOnPhone());
+      super.onConfigurationChanged(newConfig);
+        try {
+            mCamera.setDisplayOrientation(getScreenRotationOnPhone());
+        } catch (Exception e) {
+            // do nothing
+        }
     }
 
     @Override
