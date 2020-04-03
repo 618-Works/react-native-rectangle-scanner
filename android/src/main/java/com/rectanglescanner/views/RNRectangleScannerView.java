@@ -183,7 +183,7 @@ public class RNRectangleScannerView extends RectangleDetectionController {
     private boolean saveToDirectory(Mat doc, String fileName) {
         Mat endDoc = new Mat(doc.size(), CvType.CV_8UC4);
         doc.copyTo(endDoc);
-        Core.flip(doc.t(), endDoc, 1);
+//         Core.flip(doc.t(), endDoc, 1);
         ArrayList<Integer> parameters = new ArrayList();
         parameters.add(Imgcodecs.CV_IMWRITE_JPEG_QUALITY);
         parameters.add((int)(this.capturedQuality * 100));
